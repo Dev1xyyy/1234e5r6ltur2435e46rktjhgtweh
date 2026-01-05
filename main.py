@@ -203,7 +203,7 @@ def start_server():
     Waiting for connections...
     """
     print(start_msg)
-    logger.info(f"Сервер NovCord запущен на {cfg.HOST}:{cfg.PORT} (Public IP: {public_ip})")
+    logger.info(f"Сервер NovCord запущен на {cfg.HOST}:{cfg.PORT} (Public IPP: {public_ip})")
     
     try:
         while True:
@@ -220,3 +220,4 @@ def start_server():
 
 if __name__ == "__main__":
     start_server()
+
