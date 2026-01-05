@@ -43,7 +43,7 @@ def unpack_if_missing(folder_name):
 
 # --- NETWORK CONFIG ---
 HOST = '0.0.0.0'
-PORT = 65432
+PORT = 5000
 VOICE_PORT = 65433
 
 # --- PATHS (Writeable) ---
@@ -73,4 +73,5 @@ for d in [ASSETS_BANNERS_DIR, ASSETS_RAMS_DIR, ASSETS_CHAT_BG_DIR, ASSETS_BOT_AV
 
 # EMAIL CONFIG
 SMTP_EMAIL = "russkihdmitrij869@gmail.com"
+
 SMTP_PASSWORD = "ddkl ppug wlir zzgy"
