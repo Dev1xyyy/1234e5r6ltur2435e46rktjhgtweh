@@ -3,15 +3,13 @@ import subprocess
 import importlib.util
 import socket
 import threading
+from urllib.request import urlopen # Для определения внешнего IP
 
 # --- 1. AUTO-INSTALL DEPENDENCIES ---
 def check_and_install_dependencies():
     """
     Проверяет и устанавливает необходимые библиотеки перед запуском.
     """
-    # Словарь: 'имя_модуля_в_коде': 'имя_пакета_в_pip'
-    # На данный момент сервер использует стандартные библиотеки Python.
-    # Если вы добавите PyAudio или другие либы на сервер, раскомментируйте строки ниже.
     required_libs = {
         # "pyaudio": "pyaudio", 
         # "requests": "requests",
@@ -31,7 +29,6 @@ def check_and_install_dependencies():
                 print(f"[ERROR] Не удалось установить '{package_name}'.")
                 print("Попробуйте установить вручную: pip install " + package_name)
         else:
-            # print(f"[OK] '{package_name}' уже установлена.")
             pass
             
     if installed_any:
@@ -39,7 +36,6 @@ def check_and_install_dependencies():
     else:
         print("--- Зависимости в порядке. Запуск... ---\n")
 
-# Запускаем проверку перед импортом остальных модулей
 check_and_install_dependencies()
 
 # --- 2. SERVER IMPORTS ---
@@ -50,6 +46,23 @@ import server_db as db_mod
 import server_logic as logic
 from server_logger import logger
 from server_voice import voice_server
+
+# --- HELPER FOR PUBLIC IP ---
+def get_public_ip():
+    """Пытается определить внешний IP сервера"""
+    try:
+        # Способ 1: Через сервис
+        return urlopen('https://api.ipify.org').read().decode('utf8')
+    except:
+        try:
+            # Способ 2: Локальный IP в сети (если нет интернета)
+            s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+            s.connect(("8.8.8.8", 80))
+            ip = s.getsockname()[0]
+            s.close()
+            return ip
+        except:
+            return "127.0.0.1"
 
 # --- 3. SERVER LOGIC ---
 
@@ -112,7 +125,7 @@ def start_server():
     """Запуск основного цикла сервера"""
     
     # Инициализация ресурсов
-    cfg.unpack_if_missing("server_files") # Убедимся, что папки существуют (если логика из server_config используется)
+    cfg.unpack_if_missing("server_files") 
     
     db_mod.init_db()
     voice_server.start()
@@ -129,11 +142,14 @@ def start_server():
         
     server.listen()
     
+    public_ip = get_public_ip()
+    
     start_msg = f"""
     =========================================
        NovCord Server Started Successfully
     =========================================
-    IP: {cfg.HOST}
+    Public IP: {public_ip}  <-- Впишите это в клиент!
+    Listening on: {cfg.HOST}
     TCP Port: {cfg.PORT}
     UDP Voice Port: {cfg.VOICE_PORT}
     Database: {cfg.DB_NAME}
@@ -142,7 +158,7 @@ def start_server():
     Waiting for connections...
     """
     print(start_msg)
-    logger.info(f"Сервер NovCord запущен на {cfg.HOST}:{cfg.PORT}")
+    logger.info(f"Сервер NovCord запущен на {cfg.HOST}:{cfg.PORT} (Public IP: {public_ip})")
     
     try:
         while True:
