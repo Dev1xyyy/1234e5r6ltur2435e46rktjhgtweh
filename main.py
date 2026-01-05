@@ -3,7 +3,9 @@ import subprocess
 import importlib.util
 import socket
 import threading
-from urllib.request import urlopen # Для определения внешнего IP
+import platform
+import ctypes
+from urllib.request import urlopen
 
 # --- 1. AUTO-INSTALL DEPENDENCIES ---
 def check_and_install_dependencies():
@@ -51,11 +53,9 @@ from server_voice import voice_server
 def get_public_ip():
     """Пытается определить внешний IP сервера"""
     try:
-        # Способ 1: Через сервис
-        return urlopen('https://api.ipify.org').read().decode('utf8')
+        return urlopen('https://api.ipify.org', timeout=3).read().decode('utf8')
     except:
         try:
-            # Способ 2: Локальный IP в сети (если нет интернета)
             s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
             s.connect(("8.8.8.8", 80))
             ip = s.getsockname()[0]
@@ -63,6 +63,48 @@ def get_public_ip():
             return ip
         except:
             return "127.0.0.1"
+
+# --- FIREWALL HELPER ---
+def is_admin():
+    try:
+        return ctypes.windll.shell32.IsUserAnAdmin()
+    except:
+        return False
+
+def open_firewall_ports():
+    """Попытка открыть порты в Windows Firewall"""
+    if platform.system() != "Windows":
+        return
+
+    print("--- Настройка Брандмауэра Windows ---")
+    if not is_admin():
+        print("[WARN] Нет прав администратора. Автоматическое открытие портов невозможно.")
+        print("Запустите скрипт от имени администратора, если клиенты не могут подключиться.")
+        return
+
+    ports = [
+        (cfg.PORT, "TCP", "NovCord TCP"),
+        (cfg.VOICE_PORT, "UDP", "NovCord Voice UDP")
+    ]
+
+    try:
+        for port, protocol, name in ports:
+            # Команда удаления старого правила (чтобы не дублировать)
+            subprocess.run(
+                f'netsh advfirewall firewall delete rule name="{name}"', 
+                shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
+            )
+            # Команда добавления нового правила
+            cmd = f'netsh advfirewall firewall add rule name="{name}" dir=in action=allow protocol={protocol} localport={port}'
+            result = subprocess.run(cmd, shell=True, capture_output=True, text=True)
+            
+            if "Ok" in result.stdout or "ОК" in result.stdout:
+                print(f"[OK] Порт {port} ({protocol}) открыт.")
+            else:
+                print(f"[ERR] Ошибка открытия порта {port}: {result.stdout.strip()}")
+    except Exception as e:
+        print(f"[ERR] Ошибка настройки брандмауэра: {e}")
+    print("---------------------------------------")
 
 # --- 3. SERVER LOGIC ---
 
@@ -127,6 +169,9 @@ def start_server():
     # Инициализация ресурсов
     cfg.unpack_if_missing("server_files") 
     
+    # Попытка открыть порты
+    open_firewall_ports()
+    
     db_mod.init_db()
     voice_server.start()
     
@@ -148,7 +193,7 @@ def start_server():
     =========================================
        NovCord Server Started Successfully
     =========================================
-    Public IP: {public_ip}  <-- Впишите это в клиент!
+    Public IP: {public_ip}
     Listening on: {cfg.HOST}
     TCP Port: {cfg.PORT}
     UDP Voice Port: {cfg.VOICE_PORT}
